@@ -89,3 +89,65 @@ grep bicuspid file.csv
 - -l: print the names of files that contain matches, not the matches
 - -n: print line numbers for matching lines
 - -v: invert the match, i.e., only show lines that don't match
+
+### count records in file
+wc - word count  
+-c = # of characters  
+-w = # of words  
+-l = # of lines  
+```sh
+wc -c file.txt
+```
+### wildcards to use for filenames
+
+seasonal/*  
+seasonal/*.csv  
+  
+? - matches a single character  
+[ ] - matches any of the characters in the square bracket  
+{ } - matches any of the comma separated patterns
+```sh
+head -n 3 seasonal/s*
+
+ls directory1/file*
+
+ls 201?.txt  # 2017.txt, 2018.txt, 2019.txt
+
+ls 201[78].txt  # 2017.txt, 2018.txt
+
+ls {*.csv, *.txt}  # any file with csv or txt
+```
+
+### Sorting the data from file
+sort - by default asc alphabetical order   
+-n = sort numerically  
+-r = reverse the order  
+-f = fold case i.e case insensitive  
+-b = ignore lending blanks
+
+```sh
+sort -r file.txt
+```
+
+### Remove duplicate lines from file
+uniq - only remove adjacent duplicate lines
+```sh
+uniq -c file.txt # gives count also
+```
+
+# Save commands output
+```sh
+head -n 5 file.csv > top.csv  #storing first 5 lines to top.csv
+
+cut -d , -f 2 seasonal/*.csv | grep -v Tooth > teeth-only.txt
+
+```
+
+# Combining commands
+pipe is used to combine commands
+```sh
+head -n 5 seasonal/summer.csv | tail -n 3
+
+cut -d , -f 1 seasonal/spring.csv | grep -v Date | head -n 10
+```
+using output of the left command as input to the right
