@@ -151,3 +151,32 @@ head -n 5 seasonal/summer.csv | tail -n 3
 cut -d , -f 1 seasonal/spring.csv | grep -v Date | head -n 10
 ```
 using output of the left command as input to the right
+
+# Priting using shell
+echo - for printing in shell  
+set - gives all veriables which are set
+```sh
+echo $USER   # prints usre name
+echo USER    # prints USER
+echo $OSTYPE   
+```
+
+**shell variable**
+
+
+```sh
+training=seasonal/summer.csv
+echo $training
+
+for filetype in docx odt pdf; do echo $filetype; done
+
+for filename in people/*; do echo $filename; done
+
+files=seasonal/*.csv
+for f in $files; do echo $f; done
+
+for file in seasonal/*.csv; do grep 2017-07 $file | tail -n 1;done
+
+for f in seasonal/*.csv; do echo $f; head -n 2 $f | tail -n 1; done
+```
+
