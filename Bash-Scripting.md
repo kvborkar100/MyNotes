@@ -180,3 +180,28 @@ for file in seasonal/*.csv; do grep 2017-07 $file | tail -n 1;done
 for f in seasonal/*.csv; do echo $f; head -n 2 $f | tail -n 1; done
 ```
 
+# Editing Files using nano
+
+Ctrl + K: delete a line.   
+Ctrl + U: un-delete a line.  
+Ctrl + O: save the file ('O' stands for 'output'). You will also need to press Enter to confirm the filename!  
+Ctrl + X: exit the editor.  
+```sh
+nano filename.txt
+```
+
+# Running bash scripts
+```sh
+bash filename.sh
+```
+## Command line arguments
+```sh
+# inside the file   $@ will be replaced with arguments
+sort $@ | uniq
+
+# command line
+bash unique-lines.sh seasonal/summer.csv
+
+# we can also use, parameters will be passed on cmd
+cut -d , -f $2 $1
+```

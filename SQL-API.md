@@ -24,7 +24,9 @@ FROM People10M;
 
 ## Describe Table
 ```sql
-DESCRIBE EXTENDED People10M;  --extended gives more details about the table
+DESCRIBE EXTENDED People10M; --extended gives more details about the table
+
+DESCRIBE DETAIL health_tracker_silver;
 ```
 
 
@@ -339,3 +341,72 @@ SELECT
 FROM AvgTemps
 WHERE month(date)="8" AND dc_id = "dc-102";
 ```
+
+# Delta Lake
+
+## Creating table
+```sql
+CREATE OR REPLACE TABLE health_tracker_silver 
+USING DELTA
+PARTITIONED BY (p_device_id)
+LOCATION "/health_tracker/silver" AS (
+SELECT
+  value.name,
+  value.heartrate,
+  CAST(FROM_UNIXTIME(value.time) AS timestamp) AS time,
+  CAST(FROM_UNIXTIME(value.time) AS DATE) AS dte,
+  value.device_id p_device_id
+FROM
+  health_tracker_data_2020_01
+)
+```
+
+## Appending new data to existing delta table
+```sql
+INSERT INTO
+  health_tracker_silver
+SELECT
+  value.name,
+  value.heartrate,
+  CAST(FROM_UNIXTIME(value.time) AS timestamp) AS time,
+  CAST(FROM_UNIXTIME(value.time) AS DATE) AS dte,
+  value.device_id p_device_id
+FROM
+  health_tracker_data_2020_02
+```
+
+## Time travel
+```sql
+SELECT COUNT(*) FROM health_tracker_silver VERSION AS OF 0
+```
+## Describe History
+
+```sql
+DESCRIBE HISTORY health_tracker_silver
+```
+
+## MERGE INTO 
+```sql
+MERGE INTO health_tracker_silver                            -- the MERGE instruction is used to perform the upsert
+USING upserts
+
+ON health_tracker_silver.time = upserts.time AND        
+   health_tracker_silver.p_device_id = upserts.p_device_id  -- ON is used to describe the MERGE condition
+   
+WHEN MATCHED THEN                                           -- WHEN MATCHED describes the update behavior
+  UPDATE SET
+  health_tracker_silver.heartrate = upserts.heartrate   
+WHEN NOT MATCHED THEN                                       -- WHEN NOT MATCHED describes the insert behavior
+  INSERT (name, heartrate, time, dte, p_device_id)              
+  VALUES (name, heartrate, time, dte, p_device_id)
+```
+
+## optimize delta table
+Delta table size increases over time. Optimize will converte many small files in to lesst large files. Delta is a columnar storage.
+Uses Z - ordering
+```sql
+OPTIMIZE flights ZORDER BY (DayofWeek);
+```
+
+## Delta cache
+Not similar to spark cache. It creates a local copy from remote file.

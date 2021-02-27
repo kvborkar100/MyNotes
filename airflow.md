@@ -18,9 +18,9 @@ Wrapper around the class
 db = connect(host, credentials)
 db.insert(sql_request)
 ```  
-- Action Operator - Excuting commands, functions  
-- Transfer Operator - allows to transfer data  
-- Sensor Operators - wait for some thing to happen
+- Action Operator - Excuting commands, functions eg. python, bash script  
+- Transfer Operator - allows to transfer data eg. any operator transfering data 
+- Sensor Operators - wait for some thing to happen eg. waiting for file to land at specific location
 
 
 **Task** - is an operator  
@@ -74,10 +74,35 @@ airflow UI -> localhost:8080
 > airflow dags trigger -e 2021-02-23 dag_id  # triggers the DAG at given execution type
 
 > airflow test dag_id task_id execution_date # test the task in your DAG
+
+> airflow tasks test user_processing creating_table 2020-01-01  #eg
+```
+Note: Create one task per operator to easily trigger a failed task.
+
+Creating a DAG - 
+```python
+from airflow import DAG
+from datetime import datetime
+
+default_args = {
+    'start_date': datetime(2020, 1, 1)
+
+}
+
+with DAG(dag_id='user_processing',
+         schedule_interval='@daily',
+         default_args=default_args,
+         catchup=False) as dag:
+    pass
+
 ```
 
+If DAG is scheduled to run at 2020-1-1 10AM after every 10 minutes then the first run will be 2020-1-1 10.10 AM.  i.e start_date + schedule_time
 
-
+If DAG is scheduled to run everyday from 1, 2, stopped on 3-4-5 and resumed on 6 then it will first trigger the 3-4-5 and then 6.
+catchup = True
+It will only trigger the DAGs from latest execution start date.  
+Dates in Airflow are in UTC
 
 
 Credits: 
