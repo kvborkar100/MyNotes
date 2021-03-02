@@ -48,7 +48,7 @@ db.insert(sql_request)
 
 airflow UI -> localhost:8080
 
-**Airflow CLI**
+## **Airflow CLI**
 
 ```sh
 > pip install apache-airflow
@@ -76,10 +76,12 @@ airflow UI -> localhost:8080
 > airflow test dag_id task_id execution_date # test the task in your DAG
 
 > airflow tasks test user_processing creating_table 2020-01-01  #eg
+
+> airflow db check # check db connection
 ```
 Note: Create one task per operator to easily trigger a failed task.
 
-Creating a DAG - 
+## Creating a DAG - 
 ```python
 from airflow import DAG
 from datetime import datetime
@@ -104,6 +106,100 @@ catchup = True
 It will only trigger the DAGs from latest execution start date.  
 Dates in Airflow are in UTC
 
+## Task Dependencies and LocalExecutor
+```python
+task1 >> task2 >> task3 >> task4
+
+task1 >> [task2, task3] >> task4
+```
+
+
+**Get connection details** 
+```sh
+airflow config get-value core sql_alchemy_conn
+airflow config get-value core executor   #SequentialExecutor
+```
+
+SQlite doesnt allow multiple writes at same time  
+SequentialExecutor - One task after the other  
+LocalExecutor - Run tasks in parallel 
+if (task1 >> [task2, task3] >> task4) then it will be executed as (task1 >> task2 >> task3 >> task4)
+
+If we want to run two tasks at a time then we need to change the database as sqlite doesnt support this.eg PostgresSQL.
+Task will be processed as a sub preocess
+
+
+Install postgres and use as metastore
+```sh
+sudo -u postgres psql  # connect to default user
+
+ALTER USER postgres PASSWORD 'Blackpanther22';  # change password
+
+pip install 'apache-airflow[postgres]'
+```
+
+confirgure sql_alchemy_conn in airflow.cfg
+replace value with -
+```python
+sql_alchemy_conn = postgresql+psycopg2://postgres:Blackpanther22@localhost/postgres
+
+executor = LocalExecutor  #change sequencial executor to local
+```
+```sh
+#check connection with
+airflow db check 
+
+# init the postgres database 
+airflow db init
+
+# create user 
+airflow users create -u kvborkar100 -p Blackpanther22 -f Krushna -l Borkar -r Admin -e test@email.com
+
+# show dbs in postgres after connecting
+\l
+```
+
+## Scaling airflow using Celery
+
+Celery and Kubernetes executor can be used.
+All Executors use queues to execute tasks.
+Workers pulls the task from queus and process it.
+
+![alt](celery.png)
+
+
+
+```sh
+sudo apt install redis-server
+
+sudo nano /etc/redis/redis.conf #edit supervised no -> supervised systemd
+
+sudo systemctl restart redis.service  #start redis server
+
+sudo systemctl status redis.service    #check status 
+```
+Edit airflow.cfg and set executor as celery, broker as redis, result backend as our sqlalchemy_conn
+```python
+executor = CeleryExecutor
+
+broker_url = redis://localhost:6379/0
+
+#change the backend url little bit as
+result_backend = db+postgresql://postgres:Blackpanther22@localhost/postgres
+```
+```sh
+# start celery flower
+airflow celery flower
+
+# start the machine as a airflow worker
+airflow celery worker
+
+#start webserver
+airflow webserver
+
+#start scheduler
+airflow scheduler
+```
 
 Credits: 
 Marc Lamberti Courses Udemy
