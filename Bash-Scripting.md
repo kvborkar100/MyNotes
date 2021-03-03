@@ -378,3 +378,75 @@ cat hire_data/* | grep "$1" > "$1".csv
 
 > bash file.sh Pune
 ```
+## variables
+```sh
+var1="Moon"
+echo $var1   # reference using $
+
+firstname='Krushna'
+lastname='Borkar'
+echo "Hello there" $firstname $lastname
+
+name='Krushna'
+age=25
+echo "My name is $name and age is $age"
+```
+Dont add spaces around equal sign
+
+
+## Date
+```sh
+date                      #returns current date and time as string
+```
+
+## quotes
+```sh
+var1='Krushna'
+var1_singlequote='$var1'   #using single quotes
+echo $var1_singlequote     #prints $var1
+
+var1='Krushna'
+var1_singlequote="$var1"  #using double quotes
+echo $var1_singlequote    #prints Krushna
+
+rightnow_doublequotes="The date is `date`."  #opens a new shell in background for date and returns the result to original command
+echo $rightnow_doublequotes
+> The date is Wednesday 03 March 2021 11:14:03 AM IST.
+
+rightnow_doublequotes="The date is $(date)."    #same result as above but it is used more than backticks method
+
+model1=87.65
+model2=89.20
+echo "The total score is $(echo "$model1+$model2" | bc)"
+echo "The total score is $(echo "($model1+$model2)/2" | bc)"
+```
+
+## Numeric variables
+```sh
+expr 1 + 2      # not expr 1+2  # cannot handle decimal places
+
+echo $((1+2))   #same as above, uses expr in background so no decimal
+
+bc              # basic calculator  can be used with pipe
+
+echo "1 + 2.5" | bc   # will retun 3.5
+
+echo "10/3" | bc  # will return 3
+
+echo "scale=3; 10 / 3" | bc # will return 3.333
+```
+
+## Arrays 
+```sh
+declare -a my_array  #declaring without any element
+
+my_array=(1 2 3)     #with array elements, add spaces between array elements
+
+echo ${my_array[@]}   #returns all elements
+
+echo ${#my_array[@]}  #returns array count
+
+echo ${my_array[2]}   # returns 2 Bash uses 0 indexing for array
+
+my_array[2]=99       #changing array elements 
+```
