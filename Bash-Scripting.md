@@ -102,6 +102,7 @@ cat two_cities.txt | egrep 'Sydney Carton|Charles Darnay' | wc -l # same output 
 - -l: print the names of files that contain matches, not the matches
 - -n: print line numbers for matching lines
 - -v: invert the match, i.e., only show lines that don't match
+- -q:doest return the mached lines.helpful in writing the conditions
 
 ### count records in file
 wc - word count  
@@ -449,4 +450,159 @@ echo ${#my_array[@]}  #returns array count
 echo ${my_array[2]}   # returns 2 Bash uses 0 indexing for array
 
 my_array[2]=99       #changing array elements 
+```
+## IF statement
+```
+if [ CONDITION ]; then
+    # SOME CODE
+else
+    # SOMW OTHER CODE
+fi
+```
+- spaces between square brackets and conditional elements inside
+- dont forget ;
+  
+```sh
+x="Queen"
+
+if [ $x == "King"]; then
+    echo "$x is a King"
+else
+    echo "$x is not a King"
+fi
+```
+### Arithmetic If statements
+```sh
+x=10
+
+if(($x > 5)); then
+    echo "$x is greater than 5"
+else
+    echo "$x is less than 5"
+fi
+```
+```
+-eq -> equal to
+-ne -> not equal to
+-lt -> less than
+-le -> less than or equal to
+-gt -> greater than
+-ge -> greater than or equal to
+```
+```sh
+x=10
+
+if [ $x -gt 5 ]; then
+    echo "$x is greater than 5"
+else
+    echo "$x is less than 5"
+fi
+```
+### File related flags
+```
+-e -> if file exists
+-s -> if file exixts and has size greater than 0
+-r -> if file exists and is readable
+-w -> if file exixts and is writable
+
+&& is for AND
+|| is for OR
+```
+
+```sh
+x=10
+if [ $x -gt 5 ] && [ $x -lt 11 ]; then
+    echo "$x is more than 5 and less than 11!"
+fi
+
+#is same as below
+
+if [[ $x -gt 5 && $x -lt 11 ]]; then
+    echo "$x is more than 5 and less than 11!"
+fi
+```
+
+## FOR Loop
+```sh
+for x in 1 2 3
+do
+    echo $x
+done
+```
+```brace expansion -> {START..STOP..INCREMENT}```
+```sh
+for x in {1..10..2}
+do
+    echo $x
+done
+```
+Three expression syntax
+```sh
+for ((x=2;x<=4;x+=2))
+do
+    echo $x
+done
+```
+Glob expansion - printing files in directory eg dir1/*
+```sh
+for file in $(ls .)
+do
+    echo $file
+done
+```
+
+## WHILE loop
+```sh
+x=1
+while [ $x -le 3 ];
+do
+    echo $x
+    ((x+=1))
+done
+```
+
+## CASE statements
+```
+case MATCHVAR in
+  PATTERN1)
+  COMMAND1;;
+  PATTERN2)
+  COMMAND2;;
+  *)
+  DEFAULT COMMAND;;
+esac
+```
+
+Example 1 - 
+```sh
+# Create a CASE statement matching the first ARGV element
+case $1 in
+  # Match on all weekdays
+  Monday|Tuesday|Wednesday|Thursday|Friday)
+  echo "It is a Weekday!";;
+  # Match on all weekend days
+  Saturday|Sunday)
+  echo "It is a Weekend!";;
+  # Create a default
+  *) 
+  echo "Not a day!";;
+esac
+```
+Example 2 - 
+```sh
+# Use a FOR loop for each file in 'model_out'
+for file in model_out/*
+do
+    # Create a CASE statement for each file's contents
+    case $(cat $file) in
+      # Match on tree and non-tree models
+      *"Random Forest"*|*GBM*|*XGBoost*)
+      mv $file tree_models/ ;;
+      *KNN*|*Logistic*)
+      rm $file ;;
+      # Create a default
+      *) 
+      echo "Unknown model in $file" ;;
+    esac
+done
 ```
