@@ -157,6 +157,12 @@ revenueDF = eventsDF.filter(col("ecommerce.purchase_revenue_in_usd").isNotNull()
 androidDF = eventsDF.filter((col("traffic_source") != "direct") & (col("device") == "Android"))
 ```
 
+## adding literal/constant
+```python
+convertedUsersDF = (salesDF.select("email").dropDuplicates().withColumn("converted", lit(True))
+)
+```
+
 ## dropping duplicate columns - distinct(), dropDuplicates()
 Returns a new DataFrame with duplicate rows removed, optionally considering only a subset of columns.
 ```python
@@ -202,23 +208,216 @@ stateAggregatesDF = df.groupBy("geo.state").agg(
   avg("ecommerce.total_item_quantity").alias("avg_quantity"),
   approx_count_distinct("user_id").alias("distinct_users"))
 ```
-# Datetimes
+# Datetime Functions
+## cast()
+casts column to different datatype
+```python
+timestampDF = df.withColumn("timestamp", (col("timestamp") / 1e6).cast("timestamp"))
+
+#or
+from pyspark.sql.types import TimestampType
+
+timestampDF = df.withColumn("timestamp", (col("timestamp") / 1e6).cast(TimestampType()))
+```
+
+## date_format()
+Converts a date/timestamp/string to a string formatted with the given date time pattern.
+```python
+from pyspark.sql.functions import date_format
+
+formattedDF = (timestampDF.withColumn("date string", date_format("timestamp", "MMMM dd, yyyy"))
+  .withColumn("time string", date_format("timestamp", "HH:mm:ss.SSSSSS"))
+) 
+```
+
+## extacting datetime attributes
+```python
+from pyspark.sql.functions import year, month, dayofweek, minute, second
+
+datetimeDF = (timestampDF.withColumn("year", year(col("timestamp")))
+  .withColumn("month", month(col("timestamp")))
+  .withColumn("dayofweek", dayofweek(col("timestamp")))
+  .withColumn("minute", minute(col("timestamp")))
+  .withColumn("second", second(col("timestamp")))              
+)
+```
+
+## to_date()
+Converts the column into DateType by casting rules to DateType.
+```python
+from pyspark.sql.functions import to_date
+
+dateDF = timestampDF.withColumn("date", to_date(col("timestamp")))
+```
+
+## manipulating datetime- date_add()
+```python
+from pyspark.sql.functions import date_add
+
+plus2DF = timestampDF.withColumn("plus_two_days", date_add(col("timestamp"), 2))
+```
 
 # Complex Types
+## explode(), split()
 
+```python
+from pyspark.sql.functions import *
+
+detailsDF = (df.withColumn("items", explode("items"))    #explode the column
+  .select("email", "items.item_name")    #select from exploded column
+  .withColumn("details", split(col("item_name"), " ")) #split using space and form an array     
+)
+#kmunoz@powell-duran.com | Premium King Mattress | ["Premium", "King", "Mattress"]
+```
+## array_contains(), element_at()
+Extracting details from arrays
+```python
+mattressDF = (detailsDF.filter(array_contains(col("details"), "Mattress"))
+  .withColumn("size", element_at(col("details"), 2))
+  .withColumn("quality", element_at(col("details"), 1))
+) 
+#kmunoz@powell-duran.com | Premium King Mattress | ["Premium", "King", "Mattress"] | King | Premium
+```
+## unionByName()
+```python
+unionDF = (mattressDF.unionByName(pillowDF)
+  .drop("details"))
+```
+## collect_set()
+```python
+optionsDF = (unionDF.groupBy("email")
+  .agg(collect_set("size").alias("size options"),
+       collect_set("quality").alias("quality options"))
+)
+#aallen43@hotmail.com | ["Queen", "Twin"] | ["Premium", "Standard"]
+```
 # Joins
+```python
+from pyspark.sql.functions import col
+conversionsDF = (usersDF.join(convertedUsersDF, "email", "outer")
+                 .filter(col("email").isNotNull()).fillna(False, ["converted"])
+)
 
+from pyspark.sql.functions import explode,collect_set
+cartsDF = (eventsDF.withColumn("items", explode("items"))
+           .groupBy("user_id").agg(collect_set("items.item_id").alias("cart"))
+)
+
+emailCartsDF = conversionsDF.join(cartsDF, "user_id", "left")
+
+abandonedCartsDF = (emailCartsDF.filter((emailCartsDF.converted == False ) & emailCartsDF.cart.isNotNull())
+)
+```
 # UDFs
+```python
+#define a function
+def firstLetterFunction(email):
+  return email[0]
 
+firstLetterFunction("annagray@kaufman.com")
+
+#define a UDF to wrap the function
+firstLetterUDF = udf(firstLetterFunction)
+
+#apply the UDF
+from pyspark.sql.functions import col
+display(salesDF.select(firstLetterUDF(col("email"))))
+```
+
+## registering udf to use in SQL
+```python
+spark.udf.register("sql_udf", firstLetterFunction)
+
+%sql
+SELECT sql_udf(email) AS firstLetter FROM sales
+```
+
+## Decorator syntax
+```python
+@udf("string")
+def decoratorUDF(email: str) -> str:
+  return email[0]
+
+display(salesDF.select(decoratorUDF(col("email"))))
+```
+
+```python
+import pandas as pd
+from pyspark.sql.functions import pandas_udf
+
+# We have a string input/output
+@pandas_udf("string")
+def vectorizedUDF(email: pd.Series) -> pd.Series:
+  return email.str[0]
+
+# Alternatively
+vectorizedUDF = pandas_udf(lambda s: s.str[0], "string")  
+
+#or
+display(salesDF.select(vectorizedUDF(col("email"))))
+```
 # Caching
 
+## cache(), persist() alias
+A call to cache() does not immediately materialize the data in cache.
+An action using the DataFrame must be executed for Spark to actually cache the data.
+```python
+df.cache()
+```
+As a best practice, you should always evict your DataFrames from cache when you no longer need them
+
+```python
+df.unpersist()
+```
+
+## cache table
+```python
+df.createOrReplaceTempView("Pageviews_DF_Python")
+spark.catalog.cacheTable("Pageviews_DF_Python")
+```
 # Query Optimizations
 
-
+## explain()
+Prints the plans (logical and physical), optionally formatted by a given explain mode.
+```python
+limitEventsDF.explain(True)
+```
 # Partitioning
+```python
+df = spark.read.parquet(eventsPath)
+df.rdd.getNumPartitions()
 
+print(spark.sparkContext.defaultParallelism)
+# print(sc.defaultParallelism)
+```
 
+## repartition()
+```python
+repartitionedDF = df.repartition(8)
 
+repartitionedDF.rdd.getNumPartitions()
+```
+## coalesce()
+Returns a new DataFrame that has exactly n partitions, when the fewer partitions are requested
 
+If a larger number of partitions is requested, it will stay at the current number of partitions
+```python
+coalesceDF = df.coalesce(8)
+coalesceDF.rdd.getNumPartitions()
+```
 
+## configure default partitions
+Use SparkConf to access the spark configuration parameter for default shuffle partitions
+```python
+spark.conf.get("spark.sql.shuffle.partitions")
+spark.conf.set("spark.sql.shuffle.partitions", "8")
+```
 
+## AQE (Adaptive Query Execution)
+In Spark 3, AQE is now able to dynamically coalesce shuffle partitions at runtime
+
+Spark SQL can use spark.sql.adaptive.enabled to control whether AQE is turned on/off (disabled by default)
+
+```python
+spark.conf.get("spark.sql.adaptive.enabled")
+```
