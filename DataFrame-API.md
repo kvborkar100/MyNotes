@@ -36,6 +36,25 @@ userDefinedSchema = StructType([
   StructField("email", StringType(), True)
 ])
 ```
+```python
+structureData = [
+    (("James","","Smith"),"36636","M",3100),
+    (("Michael","Rose",""),"40288","M",4300),
+    (("Robert","","Williams"),"42114","M",1400),
+    (("Maria","Anne","Jones"),"39192","F",5500),
+    (("Jen","Mary","Brown"),"","F",-1)
+  ]
+structureSchema = StructType([
+        StructField('name', StructType([
+             StructField('firstname', StringType(), True),
+             StructField('middlename', StringType(), True),
+             StructField('lastname', StringType(), True)
+             ])),
+         StructField('id', StringType(), True),
+         StructField('gender', StringType(), True),
+         StructField('salary', IntegerType(), True)
+         ])
+```
 
 or using DDL
 ```python
@@ -72,6 +91,26 @@ df.printSchema()
 ```
 
 # Creating DataFrame
+## create RDD
+```python
+import pyspark
+from pyspark.sql import SparkSession
+
+spark = SparkSession.builder.appName('SparkByExamples.com').getOrCreate()
+dept = [("Finance",10), 
+        ("Marketing",20), 
+        ("Sales",30), 
+        ("IT",40) 
+      ]
+
+#creating 
+rdd = spark.sparkContext.parallelize(dept)
+
+df = rdd.toDF()
+df.printSchema()
+df.show(truncate=False)
+```
+
 ## From RDD
 ```python
 createDataFrame(rdd)
@@ -85,12 +124,28 @@ createDataFrame(dataList)
 createDataFrame(rowData,columns)
 
 createDataFrame(dataList, schema)
+#empty DF
+df2 = spark.createDataFrame([], schema)
+
+df1 = spark.sparkContext.parallelize([]).toDF(schema)
+```
+
+## pandas DF from pyspark
+```python
+pandasDF = pysparkDF.toPandas()
 ```
 
 # DataFrame and Column
 ```python
 eventsDF = spark.read.parquet(eventsPath)
 display(eventsDF)        #displays dataframe
+```
+## row object
+In PySpark Row class is available by importing pyspark.sql.Row which is represented as a record/row in DataFrame
+```python
+from pyspark.sql import Row
+row=Row("James",40)
+print(row.name) 
 ```
 
 ## Creating new columns
@@ -111,6 +166,21 @@ col("ecommerce.purchase_revenue_in_usd") + col("ecommerce.total_item_quantity")
 col("event_timestamp").desc()
 
 (col("ecommerce.purchase_revenue_in_usd") * 100).cast("int")
+```
+```python
+data=[(100,2,1),(200,3,4),(300,4,4)]
+df=spark.createDataFrame(data).toDF("col1","col2","col3")
+
+#Arthmetic operations
+df.select(df.col1 + df.col2).show()
+df.select(df.col1 - df.col2).show() 
+df.select(df.col1 * df.col2).show()
+df.select(df.col1 / df.col2).show()
+df.select(df.col1 % df.col2).show()
+
+df.select(df.col2 > df.col3).show()
+df.select(df.col2 < df.col3).show()
+df.select(df.col2 == df.col3).show()
 ```
 
 ## Seleting subset of columns - select()
@@ -155,6 +225,7 @@ Filters rows using the given SQL expression or column based condition
 purchasesDF = eventsDF.filter("ecommerce.total_item_quantity > 0")
 revenueDF = eventsDF.filter(col("ecommerce.purchase_revenue_in_usd").isNotNull())
 androidDF = eventsDF.filter((col("traffic_source") != "direct") & (col("device") == "Android"))
+androidDF = eventsDF.where((col("traffic_source") != "direct") & (col("device") == "Android"))
 ```
 
 ## adding literal/constant
@@ -166,8 +237,9 @@ convertedUsersDF = (salesDF.select("email").dropDuplicates().withColumn("convert
 ## dropping duplicate columns - distinct(), dropDuplicates()
 Returns a new DataFrame with duplicate rows removed, optionally considering only a subset of columns.
 ```python
-eventsDF.distinct()
+eventsDF.distinct()   # doesnt take columns as parameter
 distinctUsersDF = eventsDF.dropDuplicates(["user_id"])
+dropDisDF = df.dropDuplicates(["department","salary"])
 ```
 
 ## Limiting df rows - limit()
@@ -175,12 +247,118 @@ distinctUsersDF = eventsDF.dropDuplicates(["user_id"])
 limitDF = eventsDF.limit(100)
 ```
 
+## between values
+```python
+#between
+df.filter(df.id.between(100,300)).show()
+```
+
+## contains
+```python
+df.filter(df.fname.contains("Cruise")).show()
+```
+
+## cast to datatype
+```sql
+df.select(df.fname,df.id.cast("int")).printSchema()
+```
+
+## startswith(), endswith() values
+```python
+#startswith, endswith()
+df.filter(df.fname.startswith("T")).show()
+df.filter(df.fname.endswith("Cruise")).show()
+```
+
+## checking null values
+```python
+#isNull & isNotNull
+df.filter(df.lname.isNull()).show()
+df.filter(df.lname.isNotNull()).show()
+```
+
+## checking like 
+```python
+df.select(df.fname,df.lname,df.id) \
+  .filter(df.fname.like("%om")) 
+```
+## Replace values in the column
+```python
+df.replace(['Alice', 'Bob'], ['A', 'B'], "name").show()
+```
+
+## checking substring
+```python
+df.select(df.fname.substr(1,2).alias("substr")).show()
+```
+## when and otherwise
+```python
+#when & otherwise
+from pyspark.sql.functions import when
+df.select(df.fname,df.lname,when(df.gender=="M","Male") \
+              .when(df.gender=="F","Female") \
+              .when(df.gender==None ,"") \
+              .otherwise(df.gender).alias("new_gender") \
+    ).show()
+```
+
+## isin ()
+```python
+#isin
+li=["100","200"]
+df.select(df.fname,df.lname,df.id) \
+  .filter(df.id.isin(li)) \
+  .show()
+```
+## pivot (rows to column)
+```python
+df.groupBy("Product").pivot("Country").sum("Amount")
+
+countries = ["USA","China","Canada","Mexico"]
+pivotDF = df.groupBy("Product").pivot("Country", countries).sum("Amount")
+pivotDF.show(truncate=False)
+```
 ## Sorting rows- sort(), orderBy()
 ```python
 increaseTimestampsDF = eventsDF.sort("event_timestamp")
 decreaseTimestampsDF = eventsDF.sort(col("event_timestamp").desc())
 increaseSessionsDF = eventsDF.orderBy(["user_first_touch_timestamp", "event_timestamp"])
+df.sort(df.fname.asc()).show()
+df.sort(df.fname.desc()).show()
+df.sortWithinPartitions("age", ascending= False).show()
 ``` 
+## for each
+```python
+def f(person):
+  print(person.name)
+df.foreach(f)   #applies to each row
+
+df.foreachPartition(f) #applies to each partition
+```
+## head, tail
+```python
+df.tail()
+df.head()
+```
+
+# Handling null values
+## dropping nulls
+```python
+df.na.drop().show()
+df.dropna().show()
+```
+
+## Filling null values
+```python
+df.na.fill(50).show()
+df.fillna(50).show()
+df.na.fill({"age":50, "name":"unknown"}).show()
+```
+
+## Replace null value
+```python
+df.na.replace(10, 20).show()
+```
 
 # Aggregation
 ```python
@@ -193,7 +371,7 @@ avgStatePurchasesDF = df.groupBy("geo.state").avg("ecommerce.purchase_revenue_in
 cityPurchaseQuantitiesDF = df.groupBy("geo.state", "geo.city").sum("ecommerce.total_item_quantity")
 ```
 
-Builtin aggregate functions
+## Builtin aggregate functions   
 Use the grouped data method agg to apply built-in aggregate functions. This allows you to apply other transformations on the resulting columns, such as alias
 
 ```python
@@ -208,6 +386,8 @@ stateAggregatesDF = df.groupBy("geo.state").agg(
   avg("ecommerce.total_item_quantity").alias("avg_quantity"),
   approx_count_distinct("user_id").alias("distinct_users"))
 ```
+
+
 # Datetime Functions
 ## cast()
 casts column to different datatype
@@ -278,11 +458,16 @@ mattressDF = (detailsDF.filter(array_contains(col("details"), "Mattress"))
 ) 
 #kmunoz@powell-duran.com | Premium King Mattress | ["Premium", "King", "Mattress"] | King | Premium
 ```
-## unionByName()
+## unionByName(), union(), unionAll()
 ```python
 unionDF = (mattressDF.unionByName(pillowDF)
   .drop("details"))
 ```
+## collect return records as Rows
+```python
+df.collect()
+```
+
 ## collect_set()
 ```python
 optionsDF = (unionDF.groupBy("email")
@@ -390,7 +575,14 @@ df.rdd.getNumPartitions()
 print(spark.sparkContext.defaultParallelism)
 # print(sc.defaultParallelism)
 ```
-
+Below example will create directory structure as state/city for each partition
+```python
+#partitionBy() multiple columns
+df.write.option("header",True) \
+        .partitionBy("state","city") \
+        .mode("overwrite") \
+        .csv("/tmp/zipcodes-state")
+```
 ## repartition()
 ```python
 repartitionedDF = df.repartition(8)
